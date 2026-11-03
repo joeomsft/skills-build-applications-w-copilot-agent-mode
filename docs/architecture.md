@@ -28,22 +28,29 @@ OctoFit Tracker is a three-tier application for a school fitness program. The st
 
 ## Implementation decisions
 
-Record your plan here before editing code.
-
-- Presentation tier decision:
-- Logic tier decision:
-- Data tier decision:
-- Activity tracking approach:
-- Team management approach:
-- Leaderboard approach:
-- Workout suggestions approach:
+- Presentation tier decision: Route capability requests through `src/api/client.ts`, then render React data and accessible loading, empty, and error states in the presentation components.
+- Logic tier decision: Keep Express routes responsible for HTTP validation and envelopes while services own leaderboard aggregation, activity scoring, and workout recommendation rules.
+- Data tier decision: Add required Mongoose fields to `User`, `Team`, `Activity`, and `Workout`; retain stable team member defaults and preserve unrelated seed records.
+- Activity tracking approach: Validate activity IDs and references before creation, compute positive points, and store `occurredAt` with the documented activities response envelope.
+- Team management approach: Reject teams without a name, default members to an empty array, and preserve submitted names, mascots, and member IDs in create/list responses.
+- Leaderboard approach: Aggregate activity points by team, sort totals descending, and assign consecutive 1-based ranks to entries with the expected team and score fields.
+- Workout suggestions approach: Match the requested seeded user by email, derive a goal or recent activity focus, and return matching workouts with an explanatory reason.
+- Seed approach: Keep seed data idempotent with stable demo upserts, reconcile Mona's previous team membership, and leave sentinel fixtures unchanged across repeated runs.
+- Verification decision: Stabilize data contracts first, then API contracts, then presentation contracts, and finish with both builds so each tier exposes a smaller failure surface.
 
 ## Test plan
 
-Record the commands you run and what each failure means.
+Baseline captured on `build-octofit-app` with MongoDB running:
 
-- Data-tier command: `npm run test:data --prefix octofit-tracker/backend`
-- API command: `npm run test:api --prefix octofit-tracker/backend`
-- Frontend command: `npm test --prefix octofit-tracker/frontend`
-- Backend build command: `npm run build --prefix octofit-tracker/backend`
-- Frontend build command: `npm run build --prefix octofit-tracker/frontend`
+- Data: `npm run test:data --prefix octofit-tracker/backend` - Seed coverage passed; 4 tests fail because required Mongoose validation is missing from the four models.
+- API: `npm run test:api --prefix octofit-tracker/backend` - All 4 tests fail: activities and teams return not-implemented responses, leaderboard is empty, and workout suggestions omit reasons.
+- Frontend: `npm test --prefix octofit-tracker/frontend` - All 15 tests are red, covering missing activity/team/leaderboard/workout data and loading, empty, and accessible error states.
+- Backend build: `npm run build --prefix octofit-tracker/backend` - Run after API contract tests pass to catch route and service type errors.
+- Frontend build: `npm run build --prefix octofit-tracker/frontend` - Run after presentation contract tests pass to catch component and client integration errors.
+
+Implementation order:
+
+1. Run the data contract test and fix only model validation, then rerun it.
+2. Run the API contract test and fix service logic/routes, starting with input and reference validation before aggregate and workout behavior.
+3. Run the frontend contract test and fix the shared client and four capability components plus their loading and empty/error states.
+4. Run each build and the corresponding contract suite again after that layer's implementation is stable.
